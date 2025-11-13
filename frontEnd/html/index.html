@@ -114,6 +114,7 @@ const weatherContent = document.getElementById('weatherContent');
 
   let currentPlace = null;
   let lastQuery = null;
+    let favorites = [];
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -139,6 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // Prefer the explicit search query; fallback to current place label
       const q = (searchInput.value && searchInput.value.trim()) || currentPlace;
       if (!q) return;
+
+      // Check if already in favorites
+      const alreadyExists = favorites.some(f => f.place === q || f.location_id === q);
+      if (alreadyExists) {
+        showError('This location is already in your favorites');
+        return;
+      }
+
       const res = await fetch(`${API_BASE_URL}/favorites`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,6 +259,7 @@ function renderWeather(data) {
       const res = await fetch(`${API_BASE_URL}/favorites`);
       if (!res.ok) throw new Error('Failed to load favorites');
       const items = await res.json();
+      favorites = items;
       renderFavorites(items);
     } catch (err) {
       console.error(err);
@@ -272,8 +282,8 @@ function renderWeather(data) {
       li.innerHTML = `
       <span class="favorites__name">${name}</span>
       <div class="favorites__actions">
-      <button class="btn btn--small" data-action="view" data-lat="${it.latitude}" data-lon="${it.longitude}">View</button>
-      <button class="btn btn--small btn--danger" data-action="delete" data-id="${it.id}">Delete</button>
+      <button type="button" class="btn btn--small" data-action="view" data-lat="${it.latitude}" data-lon="${it.longitude}">View</button>
+      <button type="button" class="btn btn--small btn--danger" data-action="delete" data-id="${it.id}">Delete</button>
       </div>
     `;
       favoritesList.appendChild(li);
@@ -282,13 +292,15 @@ function renderWeather(data) {
     favoritesList.querySelectorAll('button').forEach(btn => {
       const action = btn.getAttribute('data-action');
       if (action === 'view') {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
           const lat = parseFloat(btn.getAttribute('data-lat'));
           const lon = parseFloat(btn.getAttribute('data-lon'));
           loadWeather(null, lat, lon);
         });
       } else if (action === 'delete') {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
           const id = btn.getAttribute('data-id');
           await deleteFavorite(id);
           await loadFavorites();

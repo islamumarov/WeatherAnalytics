@@ -244,6 +244,15 @@ async def create_favorite(body: FavoriteBody, geo: GeoService = Depends(get_geoc
     location = await run_in_threadpool(db_get_or_create_location, db, lat, lon, place)
 
     def _create(db: Session):
+        existing = db.query(Favorite).filter(Favorite.location_id == location.id, Favorite.user_id == None).first()
+        if existing:
+            return {
+                "id": existing.id,
+                "location_id": existing.location_id,
+                "place": location.canonical_name,
+                "latitude": location.latitude,
+                "longitude": location.longitude,
+            }
         fav = Favorite(user_id=None, location_id=location.id)
         db.add(fav)
         db.commit()
