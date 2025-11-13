@@ -211,4 +211,4 @@ GET /api/weather/summary
 
 ---
 
-** Made with ☀️ and 💻 by Ilyas Baratov
+** Made with ☀️ and 💻 by Ilyas Baratov**
