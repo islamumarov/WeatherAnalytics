@@ -20,7 +20,7 @@ class ApiForecastClient:
         # if not self.api_key:
         #     raise ValueError("API_FOOTBALL_KEY must be set in environment variables or passed to client")
 
-    async def _make_request(self, endpoint = str, params: Optional[Dict[str, Any]] = None):
+    async def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None):
         url = f"{self.base_url}/{endpoint}"
 
         try:
