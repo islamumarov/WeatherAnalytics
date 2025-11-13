@@ -1,40 +1,44 @@
 from typing import Optional, Dict, Any
 
 import httpx
-from fastapi import HTTPException
-from core.config import settings
-
+from fastapi import logger
 
 class ApiForecastClient:
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         """
-        Simple OpenWeather forecast client.
+        Initialize API-Football client.
+
+        Args:
+            api_key: API-Football API key (defaults to settings)
+            base_url: Base URL for API (defaults to settings)
         """
-        self.api_key = api_key
-        self.base_url = base_url or "https://api.openweathermap.org/data/2.5"
+        #self.api_key = api_key or settings.api_football_key
+        self.base_url = 'https://api.openweathermap.org/data/2.5'  #base_url or settings.api_football_base_url
+        #self.timeout = settings.api_football_timeout
 
-    async def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # if not self.api_key:
+        #     raise ValueError("API_FOOTBALL_KEY must be set in environment variables or passed to client")
+
+    async def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None):
         url = f"{self.base_url}/{endpoint}"
-        # ensure API key is always sent
-        params = params or {}
-        if self.api_key:
-            params.setdefault("appid", self.api_key)
-
-        timeout = httpx.Timeout(settings.api_timeout)
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.get(url, params=params)
-                response.raise_for_status()
-                return response.json()
+            async with httpx.AsyncClient() as client:
+                #logger.info(f"API Request: GET {url} params={params}")
 
-        except httpx.ReadTimeout:
-            # propagate as HTTPException so FastAPI returns a 504
-            raise HTTPException(status_code=504, detail="Upstream API request timed out")
+                response = await client.get(url, params=params)
+
+
+                response.raise_for_status()
+                data = response.json()
+
+
+                # logger.info(f"API Response: {data.get('results', 0)} results")
+
+                return data
+
         except httpx.HTTPStatusError as e:
-            # re-raise as 502 Bad Gateway
-            raise HTTPException(status_code=502, detail=f"Upstream API returned error: {e.response.status_code}")
-        except httpx.HTTPError as e:
-            # catch other transport errors
-            raise HTTPException(status_code=502, detail=f"Upstream API request failed: {str(e)}")
+            logger.error(f"HTTP error: {e.response.status_code} - {e.response.text}")
+        except httpx.RequestError as e:
+            logger.error(f"Request error: {e}")

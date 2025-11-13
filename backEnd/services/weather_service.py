@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta, timezone, date
 from collections import defaultdict
 from typing import Dict, Any, List
-from core.config import settings
-from services.api_forecast_client import ApiForecastClient
-
-
+from .api_forecast_client import ApiForecastClient
+from backEnd.core.config import settings
 def _pick_icon(weather_argument):
     if not weather_argument: return "☁️"
     main = (weather_argument[0].get("main") or "").lower()
