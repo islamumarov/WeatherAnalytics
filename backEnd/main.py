@@ -1,3 +1,38 @@
+"""Deployment entrypoint.
+
+Some deployment platforms look for a top-level `app` module (e.g. `app.py`) that
+exposes a FastAPI `app` instance. This file simply imports and re-exports the
+`app` defined in `main.py` so those platforms can find it.
+"""
+"""Robust deployment entrypoint.
+
+Attempt multiple import strategies so `from app import app` works whether the
+package is executed as a module, as a script, or inside a packaged/read-only
+environment.
+"""
+
+import sys
+import pathlib
+import importlib.util
+
+_HERE = pathlib.Path(__file__).parent.resolve()
+if str(_HERE) not in sys.path:
+    sys.path.insert(0, str(_HERE))
+
+try:
+    # Preferred: simple top-level import
+    from main import app
+except Exception:
+    # Fallback: load main.py directly to be robust in packaging scenarios
+    main_path = _HERE / "main.py"
+    spec = importlib.util.spec_from_file_location("_local_main", str(main_path))
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load main.py from {main_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    app = getattr(module, "app")
+
+__all__ = ["app"]
 # # import pathlib
 # #
 # # from fastapi import FastAPI, Request
