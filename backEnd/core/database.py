@@ -11,7 +11,18 @@ Default path: <project_root>/db/weather.db (two levels up from this file).
 # Resolve project root and ensure db directory exists
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _DB_DIR = os.path.join(_PROJECT_ROOT, "db")
-os.makedirs(_DB_DIR, exist_ok=True)
+try:
+	# Try to create the repo-local db directory (works in local dev)
+	os.makedirs(_DB_DIR, exist_ok=True)
+except Exception:
+	# If that fails (read-only package filesystem like AWS Lambda),
+	# fall back to a writable runtime directory (default: /tmp).
+	# Allow overriding with DB_DIR environment variable.
+	import logging
+
+	logging.warning("Could not create project db dir '%s' - falling back to writable DB_DIR", _DB_DIR)
+	_DB_DIR = os.getenv("DB_DIR", "/tmp/weather_analytics_db")
+	os.makedirs(_DB_DIR, exist_ok=True)
 
 # Build default SQLite URL to <project_root>/db/weather.db
 DEFAULT_SQLITE_URL = "sqlite:///" + os.path.join(_DB_DIR, "weather.db")
