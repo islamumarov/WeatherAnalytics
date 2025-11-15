@@ -1,5 +1,7 @@
 from typing import Generator, Optional
+import logging
 import os
+import shutil
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 
@@ -8,24 +10,50 @@ Database URL configurable via env var. Default to a local SQLite file for easy d
 Default path: <project_root>/db/weather.db (two levels up from this file).
 """
 
-# Resolve project root and ensure db directory exists
-_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-_DB_DIR = os.path.join(_PROJECT_ROOT, "db")
+# Resolve project root and capture bundled/runtime SQLite locations
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+_BUNDLED_DB_PATH = os.path.join(_PROJECT_ROOT, "db", "weather.db")
+_BUNDLED_DIR = os.path.dirname(_BUNDLED_DB_PATH)
+
 try:
-	# Try to create the repo-local db directory (works in local dev)
-	os.makedirs(_DB_DIR, exist_ok=True)
+	os.makedirs(_BUNDLED_DIR, exist_ok=True)
 except Exception:
-	# If that fails (read-only package filesystem like AWS Lambda),
-	# fall back to a writable runtime directory (default: /tmp).
-	# Allow overriding with DB_DIR environment variable.
-	import logging
+	logging.debug("Skipping creation of bundled DB dir '%s' (likely read-only).", _BUNDLED_DIR)
 
-	logging.warning("Could not create project db dir '%s' - falling back to writable DB_DIR", _DB_DIR)
-	_DB_DIR = os.getenv("DB_DIR", "../db")
-	os.makedirs(_DB_DIR, exist_ok=True)
+_RUNTIME_DB_DIR = os.getenv("DB_DIR")
+if not _RUNTIME_DB_DIR:
+	tmp_base = os.getenv("TMPDIR", "/tmp")
+	_RUNTIME_DB_DIR = os.path.join(tmp_base, "weather_analytics_db")
 
-# Build default SQLite URL to <project_root>/db/weather.db
-DEFAULT_SQLITE_URL = "sqlite:///" + os.path.join(_DB_DIR, "weather.db")
+try:
+	os.makedirs(_RUNTIME_DB_DIR, exist_ok=True)
+except Exception:
+	logging.debug("Could not ensure runtime DB dir '%s' exists.", _RUNTIME_DB_DIR, exc_info=True)
+
+_RUNTIME_DB_PATH = os.path.join(_RUNTIME_DB_DIR, "weather.db")
+
+
+def _default_sqlite_path() -> str:
+	"""Resolve a usable SQLite file path across local and serverless runs."""
+	if os.path.exists(_BUNDLED_DB_PATH):
+		bundle_writable = os.access(_BUNDLED_DB_PATH, os.W_OK)
+		dir_writable = os.access(_BUNDLED_DIR, os.W_OK)
+		if bundle_writable and dir_writable:
+			return _BUNDLED_DB_PATH
+		try:
+			if not os.path.exists(_RUNTIME_DB_PATH):
+				shutil.copyfile(_BUNDLED_DB_PATH, _RUNTIME_DB_PATH)
+			return _RUNTIME_DB_PATH
+		except Exception:
+			logging.debug("Failed to copy bundled DB to runtime path '%s'.", _RUNTIME_DB_PATH, exc_info=True)
+			return _BUNDLED_DB_PATH
+	if os.access(_BUNDLED_DIR, os.W_OK):
+		return _BUNDLED_DB_PATH
+	return _RUNTIME_DB_PATH
+
+
+DEFAULT_SQLITE_PATH = _default_sqlite_path()
+DEFAULT_SQLITE_URL = "sqlite:///" + DEFAULT_SQLITE_PATH
 
 
 def _normalize_db_url(raw: str | None) -> str:
