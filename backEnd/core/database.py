@@ -26,7 +26,20 @@ except Exception:
 
 # Build default SQLite URL to <project_root>/db/weather.db
 DEFAULT_SQLITE_URL = "sqlite:///" + os.path.join(_DB_DIR, "weather.db")
-DATABASE_URL: str = os.getenv("DATABASE_URL", DEFAULT_SQLITE_URL)
+
+
+def _normalize_db_url(raw: str | None) -> str:
+
+	if not raw:
+		return DEFAULT_SQLITE_URL
+	if "://" not in raw:
+
+		abs_path = os.path.abspath(raw)
+		return "sqlite:///" + abs_path
+	return raw
+
+
+DATABASE_URL: str = _normalize_db_url(os.getenv("DATABASE_URL"))
 
 # For SQLite we need to pass connect_args to avoid thread check issues.
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
