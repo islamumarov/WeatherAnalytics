@@ -21,7 +21,7 @@ except Exception:
 	import logging
 
 	logging.warning("Could not create project db dir '%s' - falling back to writable DB_DIR", _DB_DIR)
-	_DB_DIR = os.getenv("DB_DIR", "/tmp/weather_analytics_db")
+	_DB_DIR = os.getenv("DB_DIR", "../db")
 	os.makedirs(_DB_DIR, exist_ok=True)
 
 # Build default SQLite URL to <project_root>/db/weather.db
